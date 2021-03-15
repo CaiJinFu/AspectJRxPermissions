@@ -80,6 +80,7 @@ public class AndroidPermissionAspect {
               for (Object arg : args) {
                 if (arg instanceof Consumer) {
                   onNext = (Consumer< Permission >) arg;
+                  break;
                 }
               }
             }

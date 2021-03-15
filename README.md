@@ -1,8 +1,46 @@
 # AspectJRxPermissions
 
-[TOC]
+一个注解就能完成申请权限。使用方法如下：
 
+没有返回拒绝以及拒绝不再询问的回调
+```java
+@AndroidPermission(permissions = {Manifest.permission.READ_EXTERNAL_STORAGE,
+    Manifest.permission.WRITE_EXTERNAL_STORAGE})
+public void getPermission() {
+  Log.i("TAG", "获取权限成功了: ");
+  //成功后具体的操作
+}
+```
+如果想要拒绝以及拒绝且不再询问的回调，则在方法添加一个接口参数。看如下实例：
 
+```java
+@AndroidPermission(permissions = {Manifest.permission.READ_EXTERNAL_STORAGE,
+     Manifest.permission.WRITE_EXTERNAL_STORAGE})
+ public void getPermissionResult(Consumer< Permission > onNext ) {
+   //注意事项，当方法里增加了Consumer< Permission >参数，那么方法体内的代码，也就是此处的代码不会执行了
+   Log.i("TAG", "此时的代码不会执行了: ");
+ }
+```
+
+调用的方法
+
+```java
+getPermissionResult(new Consumer< Permission >() {
+  @Override
+  public void accept(Permission permission) throws Exception {
+    if (permission.granted) {
+      // 用户已经同意该权限
+      Log.i("TAG", "获取权限: ");
+    } else if (permission.shouldShowRequestPermissionRationale) {
+      // 用户拒绝该权限
+      Log.i("TAG", "拒绝权限: ");
+    } else {
+      // 用户点击拒绝不再询问该权限
+      Log.i("TAG", "点击不再询问权限: ");
+    }
+  }
+});
+```
 
 ## AOP
 
@@ -248,17 +286,30 @@ public class AndroidPermissionAspect {
         .subscribe(new Consumer< Permission >() {
           @Override
           public void accept(Permission permission) throws Exception {
-            if (permission.granted) {
-              // 用户已经同意该权限
-              try {
-                joinPoint.proceed();
-              } catch (Throwable throwable) {
-                throwable.printStackTrace();
+            Consumer< Permission > onNext = null;
+            Object[] args = joinPoint.getArgs();
+            if (args != null && args.length > 0) {
+              for (Object arg : args) {
+                if (arg instanceof Consumer) {
+                  onNext = (Consumer< Permission >) arg;
+                }
               }
-            } else if (permission.shouldShowRequestPermissionRationale) {
-              Log.i("TAG", "拒绝权限: ");
+            }
+            if (onNext != null) {
+              onNext.accept(permission);
             } else {
-              Log.i("TAG", "点击不再询问权限: ");
+              if (permission.granted) {
+                // 用户已经同意该权限
+                try {
+                  joinPoint.proceed();
+                } catch (Throwable throwable) {
+                  throwable.printStackTrace();
+                }
+              } else if (permission.shouldShowRequestPermissionRationale) {
+                Log.i("TAG", "拒绝权限: ");
+              } else {
+                Log.i("TAG", "点击不再询问权限: ");
+              }
             }
           }
         });
@@ -282,3 +333,36 @@ public void getPermission() {
 //定义此注解的方法，一定要定义在activity或者fragment内的方法，不要定义在内部类中(包括匿名内部类中)。
 //在被@Aspect的类中，不要使用lambd表达式，否则会报错，编译不通过。
 ```
+
+如果想要拒绝以及拒绝且不再询问的回调，则在方法添加一个接口参数。看如下实例：
+
+```java
+@AndroidPermission(permissions = {Manifest.permission.READ_EXTERNAL_STORAGE,
+     Manifest.permission.WRITE_EXTERNAL_STORAGE})
+ public void getPermissionResult(Consumer< Permission > onNext ) {
+   //注意事项，当方法里增加了Consumer< Permission >参数，那么方法体内的代码，也就是此处的代码不会执行了
+   Log.i("TAG", "此时的代码不会执行了: ");
+ }
+```
+
+调用的方法
+
+```java
+getPermissionResult(new Consumer< Permission >() {
+  @Override
+  public void accept(Permission permission) throws Exception {
+    if (permission.granted) {
+      // 用户已经同意该权限
+      Log.i("TAG", "获取权限: ");
+    } else if (permission.shouldShowRequestPermissionRationale) {
+      Log.i("TAG", "拒绝权限: ");
+    } else {
+      Log.i("TAG", "点击不再询问权限: ");
+    }
+  }
+});
+```
+
+注意事项：
+
+如果方法里增加了Consumer< Permission >接口参数，那么方法体内的代码就不会执行了，具体的操作请在接口的回调里面执行。

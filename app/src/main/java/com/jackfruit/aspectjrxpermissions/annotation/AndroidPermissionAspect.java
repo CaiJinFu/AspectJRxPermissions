@@ -74,17 +74,30 @@ public class AndroidPermissionAspect {
         .subscribe(new Consumer< Permission >() {
           @Override
           public void accept(Permission permission) throws Exception {
-            if (permission.granted) {
-              // 用户已经同意该权限
-              try {
-                joinPoint.proceed();
-              } catch (Throwable throwable) {
-                throwable.printStackTrace();
+            Consumer< Permission > onNext = null;
+            Object[] args = joinPoint.getArgs();
+            if (args != null && args.length > 0) {
+              for (Object arg : args) {
+                if (arg instanceof Consumer) {
+                  onNext = (Consumer< Permission >) arg;
+                }
               }
-            } else if (permission.shouldShowRequestPermissionRationale) {
-              Log.i("TAG", "拒绝权限: ");
+            }
+            if (onNext != null) {
+              onNext.accept(permission);
             } else {
-              Log.i("TAG", "点击不再询问权限: ");
+              if (permission.granted) {
+                // 用户已经同意该权限
+                try {
+                  joinPoint.proceed();
+                } catch (Throwable throwable) {
+                  throwable.printStackTrace();
+                }
+              } else if (permission.shouldShowRequestPermissionRationale) {
+                Log.i("TAG", "拒绝权限: ");
+              } else {
+                Log.i("TAG", "点击不再询问权限: ");
+              }
             }
           }
         });
